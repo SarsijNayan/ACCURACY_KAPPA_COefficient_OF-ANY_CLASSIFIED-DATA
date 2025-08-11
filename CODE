@@ -1,0 +1,59 @@
+import rasterio
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix, accuracy_score, cohen_kappa_score
+import seaborn as sns
+
+# -----------------------
+# 📂 Input files
+# -----------------------
+classified_path = r"D:\Kavita_mam\landsat_1_11_21\new21_lulc.tif"
+# If you have a reference raster (same size & alignment), put path here:
+reference_path = None  # e.g. r"D:\...\Reference_LULC_2001.tif"
+
+# -----------------------
+# 📥 Load classified raster
+# -----------------------
+with rasterio.open(classified_path) as src:
+    classified = src.read(1)  # read first band
+
+# -----------------------
+# 📥 Load reference raster or use classified for self-assessment
+# -----------------------
+if reference_path:
+    with rasterio.open(reference_path) as src_ref:
+        reference = src_ref.read(1)
+else:
+    reference = classified.copy()  # Self-assessment
+
+# -----------------------
+# 🧹 Mask NoData values
+# -----------------------
+mask = (classified != src.nodata) & (reference != src.nodata)
+
+y_pred = classified[mask].flatten()
+y_true = reference[mask].flatten()
+
+# -----------------------
+# 📊 Compute metrics
+# -----------------------
+labels = np.unique(np.concatenate((y_true, y_pred)))
+cm = confusion_matrix(y_true, y_pred, labels=labels)
+oa = accuracy_score(y_true, y_pred)
+kappa = cohen_kappa_score(y_true, y_pred)
+
+print("Labels:", labels)
+print("Confusion Matrix:\n", cm)
+print(f"Overall Accuracy: {oa*100:.2f}%")
+print(f"Kappa Coefficient: {kappa:.4f}")
+
+# -----------------------
+# 🔥 Plot heatmap of confusion matrix
+# -----------------------
+plt.figure(figsize=(10, 8))
+sns.heatmap(cm, annot=True, fmt='d', cmap="YlGnBu",
+            xticklabels=labels, yticklabels=labels)
+plt.xlabel('Predicted Class')
+plt.ylabel('Reference Class')
+plt.title('Confusion Matrix Heatmap')
+plt.show()
